@@ -203,12 +203,25 @@ class CalendarSync:
                     logger.info(f"Event declined by an attendee in source calendar: {event.get('SUMMARY')}")
                     break
         
+        # Initialize extended_properties for any event type
+        extended_properties = {
+            'private': {
+                'externalCalendarId': self.ical_url,
+                'externalEventId': str(event.get('UID', '')),
+                'isRecurring': 'false',
+                'sourceCalendarStatus': str(ical_status) if ical_status else 'none'
+            }
+        }
+        
         # Check if event is recurring
         rrule = event.get('RRULE')
         recurrence = None
         if rrule:
             logger.info(f"Found recurring event with summary: {event.get('SUMMARY')} and UID: {event.get('UID')}")
             logger.info(f"Recurrence rule: {rrule}")
+            
+            # Mark this as a recurring event in extended properties
+            extended_properties['private']['isRecurring'] = 'true'
             
             # More detailed logging of the recurrence rule components
             freq = rrule.get('FREQ', ['NONE'])[0]
@@ -242,16 +255,6 @@ class CalendarSync:
                 
             # Check for RECURRENCE-ID which indicates an exception to a recurring event
             recurrence_id = event.get('RECURRENCE-ID')
-            
-            # Initialize extended_properties regardless of recurrence_id
-            extended_properties = {
-                'private': {
-                    'externalCalendarId': self.ical_url,
-                    'externalEventId': str(event.get('UID', '')),
-                    'isRecurring': 'true' if rrule else 'false',
-                    'sourceCalendarStatus': str(ical_status) if ical_status else 'none'
-                }
-            }
             
             if recurrence_id:
                 logger.info(f"Found exception to recurring event: {event.get('SUMMARY')} on {recurrence_id.dt}")
