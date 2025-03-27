@@ -5,6 +5,9 @@ token_*.pickle
 # Ignore log files
 *.log
 
+# Ignore config files (except sample/template configs)
+calendar_config.json
+
 # Ignore IDE files
 .vscode/
 .idea/

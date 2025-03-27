@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.malachi.calendarsync</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/malachi/Documents/Github/calendar/.venv/bin/python3</string>
+        <string>/Users/malachi/Documents/Github/calendar/main.py</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>/Users/malachi/Documents/Github/calendar/error.log</string>
+    <key>StandardOutPath</key>
+    <string>/Users/malachi/Documents/Github/calendar/output.log</string>
+    <key>WorkingDirectory</key>
+    <string>/Users/malachi/Documents/Github/calendar</string>
+</dict>
+</plist>

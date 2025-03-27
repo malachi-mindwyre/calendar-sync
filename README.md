@@ -82,20 +82,22 @@ jupyter notebook CalendarSync.ipynb
 
 #### Option 2: Editing configuration directly
 
-1. Open `run_calendar_sync.py`
-2. Edit the `calendars` list with your calendar details
+1. Create or edit `calendar_config.json` in the project directory
+2. Add your calendar details in JSON format
 
 Example configuration:
-```python
-calendars = [
-    { 
-        'url': 'https://your-calendar-url.ics',
-        'calendarName': 'Work Calendar',
-        'daysBack': 30,
-        'daysForward': 60,
-        'syncInterval': 5  # 5 minutes
-    }
-]
+```json
+{
+    "calendars": [
+        { 
+            "url": "https://your-calendar-url.ics",
+            "calendarName": "Work Calendar",
+            "daysBack": 30,
+            "daysForward": 60,
+            "syncInterval": 5
+        }
+    ]
+}
 ```
 
 ### Running the Sync
@@ -104,20 +106,39 @@ calendars = [
 
 Use the "Start Sync" button in the notebook.
 
-#### From the command line
+#### From the command line (manual method)
 
 Run the sync process in the background:
 
 **On macOS/Linux:**
 ```bash
-nohup python run_calendar_sync.py > calendar_sync.log 2>&1 &
+nohup python main.py > calendar_sync.log 2>&1 &
 ```
 
 **On Windows:**
 Create a batch file with:
 ```batch
-start /B pythonw run_calendar_sync.py
+start /B pythonw main.py
 ```
+
+#### Installing as a Background Service (Recommended)
+
+For a more robust solution, you can install the calendar sync as a background service that starts automatically when you log in:
+
+```bash
+# Make the install script executable if needed
+chmod +x install_background_service.sh
+
+# Run the installer
+./install_background_service.sh
+```
+
+This will:
+- On macOS: Install and load a LaunchAgent that runs on login
+- On Linux: Create and start a systemd user service
+- Both will automatically restart if they crash
+
+The script provides instructions on how to stop or uninstall the service if needed.
 
 ### Finding Your Calendar URL
 
@@ -192,35 +213,25 @@ python debug_calendar.py --restore-instance "instance_id_here"
 python debug_calendar.py --search "Meeting Name" --force-sync
 ```
 
-#### Testing Declined Meetings (NEW)
+#### Running with the Streamlined Command Line Interface
 
-Two new test scripts have been added to help verify that declined recurring meetings are properly handled:
+A new streamlined `main.py` script provides simpler command-line options:
 
-1. **simple_run.py** - A simplified runner for testing calendar sync:
 ```bash
-# Run a sync for a specific calendar
-python simple_run.py "IPSOS"
+# List all configured calendars
+python main.py --list
 
-# Check specifically for Russell meetings
-python simple_run.py "IPSOS" --russell
+# Run a continuous sync (standard mode)
+python main.py
 
-# Check for declined Russell meetings without syncing
-python simple_run.py "IPSOS" --check-declined-russell
+# Sync only a specific calendar
+python main.py --calendar "IPSOS"
 
-# Run a sync and then check for declined Russell meetings
-python simple_run.py "IPSOS" --check-after-sync
-```
+# Run a single sync and exit
+python main.py --single
 
-2. **test_russell_event.py** - A focused test for the "Malachi & Russell weekly catch-up" March 3, 2025 meeting:
-```bash
-# Test if the March 3, 2025 declined meeting is properly handled
-python test_russell_event.py "IPSOS"
-
-# Check all dates of the Russell meeting series
-python test_russell_event.py "IPSOS" --check-all-dates
-
-# Force decline the March 3 instance if it's not properly cancelled
-python test_russell_event.py "IPSOS" --force-decline
+# Run a single sync for a specific calendar
+python main.py --single --calendar "IPSOS"
 ```
 
 ### Token Expiration
