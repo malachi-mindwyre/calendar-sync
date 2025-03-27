@@ -104,15 +104,45 @@ class CalendarSync:
     def _convert_ical_to_google_event(self, event):
         """Convert an iCal event to Google Calendar format."""
         start_dt = event.get('DTSTART').dt
-        if hasattr(start_dt, 'date'):  # It's a datetime
-            start = {'dateTime': start_dt.strftime('%Y-%m-%dT%H:%M:%S%z')}
-        else:  # It's a date
+        
+        # Handle datetime vs date events differently
+        if hasattr(start_dt, 'tzinfo'):  # It's a datetime
+            # Check if timezone info is present
+            if start_dt.tzinfo is None:
+                # No timezone, use UTC
+                logger.warning(f"Event {event.get('SUMMARY')} has no timezone. Using UTC.")
+                start = {
+                    'dateTime': start_dt.strftime('%Y-%m-%dT%H:%M:%S'),
+                    'timeZone': 'UTC'
+                }
+            else:
+                # Has timezone, keep it
+                start = {
+                    'dateTime': start_dt.strftime('%Y-%m-%dT%H:%M:%S'),
+                    'timeZone': str(start_dt.tzinfo)
+                }
+        else:  # It's a date (all-day event)
             start = {'date': start_dt.strftime('%Y-%m-%d')}
             
+        # Get end time or use start time if not present
         end_dt = event.get('DTEND', event.get('DTSTART')).dt
-        if hasattr(end_dt, 'date'):  # It's a datetime
-            end = {'dateTime': end_dt.strftime('%Y-%m-%dT%H:%M:%S%z')}
-        else:  # It's a date
+        
+        # Handle datetime vs date events for end time
+        if hasattr(end_dt, 'tzinfo'):  # It's a datetime
+            # Check if timezone info is present
+            if end_dt.tzinfo is None:
+                # No timezone, use UTC
+                end = {
+                    'dateTime': end_dt.strftime('%Y-%m-%dT%H:%M:%S'),
+                    'timeZone': 'UTC'
+                }
+            else:
+                # Has timezone, keep it
+                end = {
+                    'dateTime': end_dt.strftime('%Y-%m-%dT%H:%M:%S'),
+                    'timeZone': str(end_dt.tzinfo)
+                }
+        else:  # It's a date (all-day event)
             end = {'date': end_dt.strftime('%Y-%m-%d')}
             
         # Format the description to include original event details and sync info
@@ -120,6 +150,43 @@ class CalendarSync:
         if description:
             description += '\n\n'
         description += f"Synced from external calendar on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        
+        # Check if event is recurring
+        rrule = event.get('RRULE')
+        recurrence = None
+        if rrule:
+            logger.info(f"Found recurring event with summary: {event.get('SUMMARY')} and UID: {event.get('UID')}")
+            logger.info(f"Recurrence rule: {rrule}")
+            
+            # More detailed logging of the recurrence rule components
+            freq = rrule.get('FREQ', ['NONE'])[0]
+            byday = rrule.get('BYDAY', ['NONE'])
+            interval = rrule.get('INTERVAL', [1])[0]
+            until = rrule.get('UNTIL', [None])[0]
+            
+            logger.info(f"Detailed recurrence: FREQ={freq}, BYDAY={byday}, INTERVAL={interval}, UNTIL={until}")
+            
+            # Convert the iCal RRULE to Google Calendar recurrence format
+            try:
+                rrule_str = rrule.to_ical().decode('utf-8')
+                logger.info(f"Raw RRULE string: {rrule_str}")
+                recurrence = [f"RRULE:{rrule_str}"]
+            except Exception as e:
+                logger.error(f"Error converting recurrence rule: {e}")
+                # Manually construct the recurrence rule
+                rrule_parts = []
+                if freq:
+                    rrule_parts.append(f"FREQ={freq}")
+                if byday != ['NONE']:
+                    rrule_parts.append(f"BYDAY={','.join(byday)}")
+                if interval != 1:
+                    rrule_parts.append(f"INTERVAL={interval}")
+                if until:
+                    rrule_parts.append(f"UNTIL={until.strftime('%Y%m%dT%H%M%SZ')}")
+                
+                manual_rrule = ";".join(rrule_parts)
+                logger.info(f"Manually constructed RRULE: {manual_rrule}")
+                recurrence = [f"RRULE:{manual_rrule}"]
             
         # Convert to Google Calendar event format
         google_event = {
@@ -133,10 +200,15 @@ class CalendarSync:
             'extendedProperties': {
                 'private': {
                     'externalCalendarId': self.ical_url,
-                    'externalEventId': str(event.get('UID', ''))
+                    'externalEventId': str(event.get('UID', '')),
+                    'isRecurring': 'true' if rrule else 'false'
                 }
             }
         }
+        
+        # Add recurrence information if available
+        if recurrence:
+            google_event['recurrence'] = recurrence
         
         return google_event
     
@@ -169,15 +241,69 @@ class CalendarSync:
             # Try to find existing event with this UID
             existing_events = self.service.events().list(
                 calendarId=self.target_calendar_id,
-                iCalUID=ical_uid
+                iCalUID=ical_uid,
+                singleEvents=False  # Important: Get the recurring event master, not instances
             ).execute()
             
             if existing_events.get('items'):
-                return existing_events['items'][0]
+                master_event = existing_events['items'][0]
+                logger.info(f"Found existing event by iCalUID: {master_event.get('summary')}")
+                
+                # Check if it's a recurring event
+                if 'recurrence' in master_event:
+                    logger.info(f"This is a recurring event with rule: {master_event['recurrence']}")
+                
+                return master_event
         except Exception as e:
             logger.error(f"Error finding event by iCalUID: {e}")
         
         return None
+        
+    def _create_or_update_recurring_event(self, google_event):
+        """Special handling for recurring events to ensure they're created properly."""
+        if 'recurrence' not in google_event:
+            return None
+            
+        try:
+            logger.info(f"Special handling for recurring event: {google_event.get('summary')}")
+            
+            # First try to find by iCalUID
+            existing = self._get_event_by_icaluid(google_event['iCalUID'])
+            
+            if existing:
+                # Update existing recurring event
+                logger.info(f"Updating existing recurring event: {existing.get('id')}")
+                updated = self.service.events().update(
+                    calendarId=self.target_calendar_id,
+                    eventId=existing['id'],
+                    body=google_event
+                ).execute()
+                return updated
+            else:
+                # Try direct insert with recurrence rule
+                logger.info(f"Creating new recurring event with rule: {google_event['recurrence']}")
+                
+                # Ensure time zone is set for recurring events
+                for time_field in ['start', 'end']:
+                    if 'dateTime' in google_event[time_field] and 'timeZone' not in google_event[time_field]:
+                        google_event[time_field]['timeZone'] = 'America/New_York'
+                
+                # Try to create without iCalUID first
+                event_copy = google_event.copy()
+                if 'iCalUID' in event_copy:
+                    del event_copy['iCalUID']
+                    
+                created = self.service.events().insert(
+                    calendarId=self.target_calendar_id,
+                    body=event_copy
+                ).execute()
+                
+                logger.info(f"Successfully created recurring event: {created.get('id')}")
+                return created
+                
+        except Exception as e:
+            logger.error(f"Error in special recurring event handling: {e}")
+            return None
     
     def initial_sync(self):
         """Perform the initial sync of calendar events."""
@@ -220,7 +346,18 @@ class CalendarSync:
                     ).execute()
                     events_updated += 1
                 else:
-                    # Check if event exists by iCalUID
+                    # Special handling for recurring events
+                    if 'recurrence' in google_event:
+                        logger.info(f"Using special handling for recurring event: {google_event.get('summary')}")
+                        result = self._create_or_update_recurring_event(google_event)
+                        
+                        if result:
+                            if result.get('status') == 'confirmed':
+                                events_added += 1
+                                logger.info(f"Successfully created/updated recurring event: {google_event.get('summary')}")
+                            continue
+                    
+                    # Regular handling for non-recurring events or if special handling failed
                     existing_event = self._get_event_by_icaluid(google_event['iCalUID'])
                     
                     if existing_event:
@@ -235,24 +372,47 @@ class CalendarSync:
                     else:
                         # Create new event with import flag to avoid duplicates
                         try:
+                            # Log the event details before import
+                            logger.info(f"Attempting to import event: {google_event.get('summary')}")
+                            if 'recurrence' in google_event:
+                                logger.info(f"With recurrence: {google_event['recurrence']}")
+                            
                             self.service.events().import_(
                                 calendarId=self.target_calendar_id,
                                 body=google_event
                             ).execute()
                             events_added += 1
+                            logger.info(f"Successfully imported event: {google_event.get('summary')}")
                         except Exception as e:
                             logger.error(f"Error importing event: {e}")
+                            
                             # Fall back to insert if import fails
                             try:
-                                # Try creating without the iCalUID
+                                # Make a clean copy for insertion
                                 event_copy = google_event.copy()
+                                
+                                # Remove problematic fields if present
                                 if 'iCalUID' in event_copy:
+                                    logger.info(f"Removing iCalUID for direct insert")
                                     del event_copy['iCalUID']
-                                self.service.events().insert(
+                                
+                                # Ensure explicit timezone for recurring events
+                                if 'recurrence' in event_copy:
+                                    logger.info(f"Ensuring timezone for recurring event insert: {event_copy.get('summary')}")
+                                    
+                                    # Make sure start/end have timeZone
+                                    for time_field in ['start', 'end']:
+                                        if 'dateTime' in event_copy[time_field] and 'timeZone' not in event_copy[time_field]:
+                                            event_copy[time_field]['timeZone'] = 'America/New_York'  # Default to Eastern Time
+                                
+                                logger.info(f"Attempting direct insert for: {event_copy.get('summary')}")
+                                created_event = self.service.events().insert(
                                     calendarId=self.target_calendar_id,
                                     body=event_copy
                                 ).execute()
+                                
                                 events_added += 1
+                                logger.info(f"Successfully inserted event: {event_copy.get('summary')} with ID: {created_event.get('id')}")
                             except Exception as insert_e:
                                 logger.error(f"Error creating event: {insert_e}")
                 
@@ -269,6 +429,53 @@ class CalendarSync:
                 logger.info(f"Deleted event {event.get('summary')} (no longer in source)")
         
         logger.info(f"Initial sync complete. Added {events_added} events, updated {events_updated} events.")
+    
+    def debug_examine_calendar(self, search_term=None, day_of_week=None):
+        """Debug helper to examine events in the source calendar."""
+        logger.info(f"Examining source calendar for events matching: {search_term} or day of week: {day_of_week}")
+        
+        # Fetch external calendar
+        ical_calendar = self.fetch_ical_events()
+        if not ical_calendar:
+            logger.error("Failed to fetch external calendar for examination.")
+            return
+        
+        events_found = 0
+        recurring_events = 0
+        
+        for component in ical_calendar.walk():
+            if component.name == "VEVENT":
+                summary = str(component.get('SUMMARY', 'No Title'))
+                uid = str(component.get('UID', 'No UID'))
+                start = component.get('DTSTART').dt
+                
+                # Check if event matches search criteria
+                matches_search = search_term and search_term.lower() in summary.lower()
+                
+                # Check for day of week
+                matches_day = False
+                if day_of_week and hasattr(start, 'weekday'):
+                    weekday = start.weekday()
+                    weekday_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+                    day_str = weekday_names[weekday]
+                    matches_day = day_of_week.lower() == day_str.lower()
+                
+                if matches_search or matches_day or not (search_term or day_of_week):
+                    events_found += 1
+                    rrule = component.get('RRULE')
+                    is_recurring = rrule is not None
+                    if is_recurring:
+                        recurring_events += 1
+                    
+                    logger.info(f"Found event: {summary}")
+                    logger.info(f"  UID: {uid}")
+                    logger.info(f"  Start: {start}")
+                    logger.info(f"  Is recurring: {is_recurring}")
+                    if is_recurring:
+                        logger.info(f"  Recurrence rule: {rrule}")
+        
+        logger.info(f"Examination complete. Found {events_found} matching events, {recurring_events} are recurring.")
+        return events_found
     
     def incremental_sync(self):
         """Perform an incremental sync to update changes."""
@@ -328,26 +535,49 @@ class CalendarSync:
                     else:
                         # Create new event with import flag to avoid duplicates
                         try:
+                            # Log the event details before import
+                            logger.info(f"Attempting to import event in incremental sync: {google_event.get('summary')}")
+                            if 'recurrence' in google_event:
+                                logger.info(f"With recurrence: {google_event['recurrence']}")
+                            
                             self.service.events().import_(
                                 calendarId=self.target_calendar_id,
                                 body=google_event
                             ).execute()
                             events_added += 1
+                            logger.info(f"Successfully imported event in incremental sync: {google_event.get('summary')}")
                         except Exception as e:
-                            logger.error(f"Error importing event: {e}")
+                            logger.error(f"Error importing event in incremental sync: {e}")
+                            
                             # Fall back to insert if import fails
                             try:
-                                # Try creating without the iCalUID
+                                # Make a clean copy for insertion
                                 event_copy = google_event.copy()
+                                
+                                # Remove problematic fields if present
                                 if 'iCalUID' in event_copy:
+                                    logger.info(f"Removing iCalUID for direct insert in incremental sync")
                                     del event_copy['iCalUID']
-                                self.service.events().insert(
+                                
+                                # Ensure explicit timezone for recurring events
+                                if 'recurrence' in event_copy:
+                                    logger.info(f"Ensuring timezone for recurring event insert in incremental sync: {event_copy.get('summary')}")
+                                    
+                                    # Make sure start/end have timeZone
+                                    for time_field in ['start', 'end']:
+                                        if 'dateTime' in event_copy[time_field] and 'timeZone' not in event_copy[time_field]:
+                                            event_copy[time_field]['timeZone'] = 'America/New_York'  # Default to Eastern Time
+                                
+                                logger.info(f"Attempting direct insert in incremental sync for: {event_copy.get('summary')}")
+                                created_event = self.service.events().insert(
                                     calendarId=self.target_calendar_id,
                                     body=event_copy
                                 ).execute()
+                                
                                 events_added += 1
+                                logger.info(f"Successfully inserted event in incremental sync: {event_copy.get('summary')} with ID: {created_event.get('id')}")
                             except Exception as insert_e:
-                                logger.error(f"Error creating event: {insert_e}")
+                                logger.error(f"Error creating event in incremental sync: {insert_e}")
         
         # Find and delete events that no longer exist in the source calendar
         events_deleted = 0
