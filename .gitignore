@@ -23,10 +23,6 @@ var/
 venv/
 ENV/
 
-# Specific Files
-calendar_sync.log
-calendar_config.json
-
 # Jupyter
 .ipynb_checkpoints
 /notebooks/
@@ -34,8 +30,6 @@ calendar_config.json
 # Logs
 *.log
 logs/
-error.log
-output.log
 
 # Authentication and sensitive files
 token_*.pickle
@@ -52,6 +46,7 @@ com.*.calendarsync.plist
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-Thumbs.dbcalendar_config.json
-*.log
-token_*.pickle
+Thumbs.db
+
+# Debug files
+debug_calendar.py
