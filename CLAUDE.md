@@ -1,6 +1,4 @@
-# Build a Generic Calendar Sync Tool
-
-## Project Goal
+- oal
 Create a clean, generalized tool that syncs external calendars (Outlook, iCloud, etc.) to Google Calendar. The tool should have no hardcoded paths, usernames, or personal information, making it easily usable by anyone who downloads it.
 
 ## Core Features
