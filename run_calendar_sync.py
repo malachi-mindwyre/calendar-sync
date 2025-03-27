@@ -4,6 +4,7 @@ import threading
 import time
 import os
 import logging
+import sys
 
 # Set up logging
 logging.basicConfig(
@@ -20,23 +21,25 @@ spec.loader.exec_module(calendar_sync)
 
 # Define your calendars here
 calendars = [
-    { 
-        'url': 'https://outlook.office365.com/owa/calendar/70428bd059d14219bddf1221b4b3d621@ipsos.com/6764ef7293d54ee68e91b63fe5c4876910567899067948008408/calendar.ics',
-        'calendarName': 'IPSOS',
-        'daysBack': 30,
-        'daysForward': 60,
-        'syncInterval': 5  # 5 minutes
-    },
-    { 
-        'url': 'https://ical.titan.email/feed/2973177/LfmH6NurIpULTZxvLvAW6dW7543wAgy3',
-        'calendarName': 'Titan',
-        'daysBack': 30,
-        'daysForward': 60,
-        'syncInterval': 5  # 5 minutes
-    }
-]
+        {
+            "url": "https://outlook.office365.com/owa/calendar/70428bd059d14219bddf1221b4b3d621@ipsos.com/6764ef7293d54ee68e91b63fe5c4876910567899067948008408/calendar.ics",
+            "calendarName": "IPSOS",
+            "daysBack": 365,
+            "daysForward": 365,
+            "syncInterval": 5
+        },
+        {
+            "url": "https://ical.titan.email/feed/2973177/LfmH6NurIpULTZxvLvAW6dW7543wAgy3",
+            "calendarName": "Titan Mail",
+            "daysBack": 365,
+            "daysForward": 365,
+            "syncInterval": 5
+        }
+    ]
 
 def sync_calendar(calendar_config):
+    """Function to sync a single calendar in a separate thread"""
+    logger.info(f"Starting sync for calendar: {calendar_config['calendarName']}")
     """Function to sync a single calendar in a separate thread"""
     logger.info(f"Starting sync for calendar: {calendar_config['calendarName']}")
     try:
@@ -53,6 +56,27 @@ def sync_calendar(calendar_config):
 
 def main():
     """Main function to start all calendar syncs"""
+    # Check if we have a special command line argument to run a single sync
+    if len(sys.argv) > 1 and sys.argv[1] == "--single-sync":
+        logger.info("Running a single sync cycle for all calendars...")
+        for calendar in calendars:
+            try:
+                logger.info(f"Starting single sync for calendar: {calendar['calendarName']}")
+                sync = calendar_sync.CalendarSync(
+                    ical_url=calendar['url'],
+                    calendar_name=calendar['calendarName'],
+                    days_back=calendar.get('daysBack', 30),
+                    days_forward=calendar.get('daysForward', 60),
+                    sync_interval=calendar.get('syncInterval', 5)
+                )
+                # Just do an initial sync and exit
+                sync.initial_sync()
+                logger.info(f"Completed single sync for calendar: {calendar['calendarName']}")
+            except Exception as e:
+                logger.error(f"Error in single sync for {calendar['calendarName']}: {e}")
+        return
+    
+    # Normal continuous syncing mode
     threads = []
     for calendar in calendars:
         thread = threading.Thread(target=sync_calendar, args=(calendar,))

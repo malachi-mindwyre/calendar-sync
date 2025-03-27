@@ -1,0 +1,16 @@
+[
+  {
+    "url": "https://outlook.office365.com/owa/calendar/70428bd059d14219bddf1221b4b3d621@ipsos.com/6764ef7293d54ee68e91b63fe5c4876910567899067948008408/calendar.ics",
+    "calendarName": "IPSOS",
+    "daysBack": 365,
+    "daysForward": 365,
+    "syncInterval": 5
+  },
+  {
+    "url": "https://ical.titan.email/feed/2973177/LfmH6NurIpULTZxvLvAW6dW7543wAgy3",
+    "calendarName": "Titan Mail",
+    "daysBack": 365,
+    "daysForward": 365,
+    "syncInterval": 5
+  }
+]

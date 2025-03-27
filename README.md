@@ -9,6 +9,8 @@ A simple, user-friendly tool to automatically sync external calendars to Google 
 - Automatically sync every 5 minutes by default (configurable)
 - Handle event additions, updates, and deletions
 - Properly handle duplicate events and syncing errors
+- Maintain declined instances of recurring events (NEW)
+- Special support for recurring events with proper timezone handling (NEW)
 - Simple Jupyter Notebook UI for configuration
 
 ## Getting Started
@@ -140,6 +142,86 @@ The tool is designed to handle duplicate events by:
 - Looking up existing events by iCalUID
 - Updating existing events instead of creating duplicates
 - Creating events without problematic IDs as a fallback
+
+### Recurring Events and Declined Instances
+
+The tool now properly handles recurring events and maintains your declined status:
+- Preserves declined instances of recurring events during sync (NEW)
+- Handles timezone information for recurring events correctly
+- Provides special handling for complex recurrence rules (RRULE)
+
+#### Handling Declined Events
+
+The calendar sync tool now properly handles declined events in two ways:
+
+1. **Declining in Google Calendar**:
+   - When you decline a specific instance of a recurring event in Google Calendar
+   - The tool will automatically detect and preserve this declined status 
+   - Even when the original recurring event is updated from the source calendar
+   - Your declined instances will remain declined after syncs
+
+2. **Declining in Source Calendar** (NEW):
+   - When you decline an event in your source calendar (e.g., Outlook, work email)
+   - The tool will detect the declined status in the source calendar's iCal feed
+   - It will automatically cancel/decline the corresponding event in Google Calendar
+   - This works for both regular events and recurring event instances
+   - Status changes are synchronized during each sync interval
+
+This feature is especially useful for managing recurring meetings where you need to decline specific occurrences, regardless of which calendar system you use to decline them.
+
+#### Debugging Recurring Events
+
+To debug recurring event issues, use the enhanced debug tool:
+```bash
+# Check all recurring events and their instances
+python debug_calendar.py --recurring
+
+# Check recurring events with a specific name
+python debug_calendar.py --recurring --search "Meeting Name" --verbose
+
+# Examine a specific event by ID 
+python debug_calendar.py --event-id "event_id_here"
+
+# Decline a specific instance of a recurring event
+python debug_calendar.py --decline-instance "instance_id_here"
+
+# Restore a previously declined instance
+python debug_calendar.py --restore-instance "instance_id_here"
+
+# Force a sync after examining events
+python debug_calendar.py --search "Meeting Name" --force-sync
+```
+
+#### Testing Declined Meetings (NEW)
+
+Two new test scripts have been added to help verify that declined recurring meetings are properly handled:
+
+1. **simple_run.py** - A simplified runner for testing calendar sync:
+```bash
+# Run a sync for a specific calendar
+python simple_run.py "IPSOS"
+
+# Check specifically for Russell meetings
+python simple_run.py "IPSOS" --russell
+
+# Check for declined Russell meetings without syncing
+python simple_run.py "IPSOS" --check-declined-russell
+
+# Run a sync and then check for declined Russell meetings
+python simple_run.py "IPSOS" --check-after-sync
+```
+
+2. **test_russell_event.py** - A focused test for the "Malachi & Russell weekly catch-up" March 3, 2025 meeting:
+```bash
+# Test if the March 3, 2025 declined meeting is properly handled
+python test_russell_event.py "IPSOS"
+
+# Check all dates of the Russell meeting series
+python test_russell_event.py "IPSOS" --check-all-dates
+
+# Force decline the March 3 instance if it's not properly cancelled
+python test_russell_event.py "IPSOS" --force-decline
+```
 
 ### Token Expiration
 

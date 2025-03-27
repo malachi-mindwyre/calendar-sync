@@ -1,3 +1,13 @@
 # Ignore sensitive files
 google_calendar_key.json
 token_*.pickle
+
+# Ignore log files
+*.log
+
+# Ignore IDE files
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+*.pyo
