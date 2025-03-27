@@ -1,0 +1,3 @@
+# Ignore sensitive files
+google_calendar_key.json
+token_*.pickle
