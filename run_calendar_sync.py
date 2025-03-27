@@ -40,8 +40,6 @@ calendars = [
 def sync_calendar(calendar_config):
     """Function to sync a single calendar in a separate thread"""
     logger.info(f"Starting sync for calendar: {calendar_config['calendarName']}")
-    """Function to sync a single calendar in a separate thread"""
-    logger.info(f"Starting sync for calendar: {calendar_config['calendarName']}")
     try:
         sync = calendar_sync.CalendarSync(
             ical_url=calendar_config['url'],
