@@ -23,6 +23,10 @@ var/
 venv/
 ENV/
 
+# Specific Files
+calendar_sync.log
+calendar_config.json
+
 # Jupyter
 .ipynb_checkpoints
 /notebooks/
