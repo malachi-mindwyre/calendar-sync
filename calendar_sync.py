@@ -242,6 +242,17 @@ class CalendarSync:
                 
             # Check for RECURRENCE-ID which indicates an exception to a recurring event
             recurrence_id = event.get('RECURRENCE-ID')
+            
+            # Initialize extended_properties regardless of recurrence_id
+            extended_properties = {
+                'private': {
+                    'externalCalendarId': self.ical_url,
+                    'externalEventId': str(event.get('UID', '')),
+                    'isRecurring': 'true' if rrule else 'false',
+                    'sourceCalendarStatus': str(ical_status) if ical_status else 'none'
+                }
+            }
+            
             if recurrence_id:
                 logger.info(f"Found exception to recurring event: {event.get('SUMMARY')} on {recurrence_id.dt}")
                 
@@ -256,31 +267,13 @@ class CalendarSync:
                     
                 logger.info(f"Exception date: {exception_date_str}")
                 
-                # Save the RECURRENCE-ID information for later use in google_event
-                extended_properties = {
-                    'private': {
-                        'recurrenceException': 'true',
-                        'recurrenceExceptionDate': exception_date_str,
-                        'externalCalendarId': self.ical_url,
-                        'externalEventId': str(event.get('UID', '')),
-                        'isRecurring': 'true',
-                        'sourceCalendarStatus': str(ical_status) if ical_status else 'none'
-                    }
-                }
+                # Add recurrence exception info to extended_properties
+                extended_properties['private']['recurrenceException'] = 'true'
+                extended_properties['private']['recurrenceExceptionDate'] = exception_date_str
                 
                 # If this exception is cancelled, it means this specific instance was declined
                 if event_status == 'cancelled':
                     logger.info(f"This recurring event exception is cancelled: {event.get('SUMMARY')} on {exception_date_str}")
-        else:
-            # Regular event's extended properties
-            extended_properties = {
-                'private': {
-                    'externalCalendarId': self.ical_url,
-                    'externalEventId': str(event.get('UID', '')),
-                    'isRecurring': 'false',
-                    'sourceCalendarStatus': str(ical_status) if ical_status else 'none'
-                }
-            }
             
         # Convert to Google Calendar event format
         google_event = {
