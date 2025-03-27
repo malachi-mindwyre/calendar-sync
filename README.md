@@ -25,7 +25,7 @@ A simple, user-friendly tool to automatically sync external calendars to Google 
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/malachi-mindwyre/calendar-sync.git
+git clone https://github.com/yourusername/calendar-sync.git
 cd calendar-sync
 ```
 
