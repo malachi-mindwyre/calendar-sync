@@ -50,7 +50,8 @@ pip install -r requirements.txt
    
    h. Download the credentials JSON file
    
-   i. Rename the file to `google_calendar_key.json` and place it in the project directory
+   i. Rename the file to `google_calendar_key.json` and place it in the project directory 
+      (This file contains sensitive data and is excluded from version control)
 
 4. Add yourself as a test user (to avoid "App not verified" warnings):
 
