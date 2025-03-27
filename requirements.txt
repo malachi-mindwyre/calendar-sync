@@ -5,3 +5,4 @@ requests>=2.26.0
 ipywidgets>=7.6.0
 jupyter>=1.0.0
 notebook>=6.0.0
+urllib3<2.0.0
