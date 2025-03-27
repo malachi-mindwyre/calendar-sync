@@ -3,21 +3,21 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.malachi.calendarsync</string>
+    <string>com.user.calendarsync</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/malachi/Documents/Github/calendar/.venv/bin/python3</string>
-        <string>/Users/malachi/Documents/Github/calendar/main.py</string>
+        <string>__PYTHON_PATH__</string>
+        <string>__SCRIPT_DIR__/main.py</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
     <key>StandardErrorPath</key>
-    <string>/Users/malachi/Documents/Github/calendar/error.log</string>
+    <string>__SCRIPT_DIR__/error.log</string>
     <key>StandardOutPath</key>
-    <string>/Users/malachi/Documents/Github/calendar/output.log</string>
+    <string>__SCRIPT_DIR__/output.log</string>
     <key>WorkingDirectory</key>
-    <string>/Users/malachi/Documents/Github/calendar</string>
+    <string>__SCRIPT_DIR__</string>
 </dict>
 </plist>

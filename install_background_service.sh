@@ -5,7 +5,14 @@
 
 # Set variables
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-PYTHON_PATH=$(which python3)
+# Try to find python in virtual environment first, then use system python
+if [ -f "$SCRIPT_DIR/.venv/bin/python3" ]; then
+    PYTHON_PATH="$SCRIPT_DIR/.venv/bin/python3"
+else
+    PYTHON_PATH=$(which python3)
+fi
+USERNAME=$(whoami)
+PLIST_NAME="com.$USERNAME.calendarsync"
 
 echo "Installing Calendar Sync background service..."
 
@@ -17,18 +24,22 @@ case "$(uname -s)" in
         # Create LaunchAgent directory if it doesn't exist
         mkdir -p "$HOME/Library/LaunchAgents"
         
+        # Create a copy of the template plist with correct paths
+        cp "$SCRIPT_DIR/com.user.calendarsync.plist" "$SCRIPT_DIR/$PLIST_NAME.plist"
+        
         # Update paths in the plist file
-        sed -i '' "s|/usr/bin/python3|$PYTHON_PATH|g" "$SCRIPT_DIR/com.malachi.calendarsync.plist"
-        sed -i '' "s|/Users/malachi/Documents/Github/calendar|$SCRIPT_DIR|g" "$SCRIPT_DIR/com.malachi.calendarsync.plist"
+        sed -i '' "s|com.user.calendarsync|$PLIST_NAME|g" "$SCRIPT_DIR/$PLIST_NAME.plist"
+        sed -i '' "s|__PYTHON_PATH__|$PYTHON_PATH|g" "$SCRIPT_DIR/$PLIST_NAME.plist"
+        sed -i '' "s|__SCRIPT_DIR__|$SCRIPT_DIR|g" "$SCRIPT_DIR/$PLIST_NAME.plist"
         
         # Copy the plist file to LaunchAgents
-        cp "$SCRIPT_DIR/com.malachi.calendarsync.plist" "$HOME/Library/LaunchAgents/"
+        cp "$SCRIPT_DIR/$PLIST_NAME.plist" "$HOME/Library/LaunchAgents/"
         
         # Load the LaunchAgent
-        launchctl load -w "$HOME/Library/LaunchAgents/com.malachi.calendarsync.plist"
+        launchctl load -w "$HOME/Library/LaunchAgents/$PLIST_NAME.plist"
         
         echo "Calendar Sync is now running in the background."
-        echo "To uninstall, run: launchctl unload -w ~/Library/LaunchAgents/com.malachi.calendarsync.plist"
+        echo "To uninstall, run: launchctl unload -w ~/Library/LaunchAgents/$PLIST_NAME.plist"
         ;;
         
     Linux)
@@ -68,7 +79,7 @@ EOF
     *)
         # Unsupported OS
         echo "Unsupported operating system. Please run the script manually with:"
-        echo "python3 $SCRIPT_DIR/run_calendar_sync.py"
+        echo "python3 $SCRIPT_DIR/main.py"
         exit 1
         ;;
 esac

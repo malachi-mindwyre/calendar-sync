@@ -1,0 +1,18 @@
+{
+    "calendars": [
+        {
+            "url": "https://example.com/calendar.ics",
+            "calendarName": "Work Calendar",
+            "daysBack": 30,
+            "daysForward": 60,
+            "syncInterval": 5
+        },
+        {
+            "url": "https://calendar.google.com/calendar/ical/...private-calendar-address.../basic.ics",
+            "calendarName": "Personal Calendar",
+            "daysBack": 14,
+            "daysForward": 30,
+            "syncInterval": 10
+        }
+    ]
+}

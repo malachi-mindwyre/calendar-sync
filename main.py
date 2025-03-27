@@ -30,31 +30,32 @@ def load_calendars():
     config_file = 'calendar_config.json'
     try:
         with open(config_file, 'r') as f:
-            return json.load(f)
+            config = json.load(f)
+            return config.get('calendars', [])
+    except FileNotFoundError:
+        logger.error(f"Calendar configuration file '{config_file}' not found. Please create it first.")
+        # Create a sample config file to help users get started
+        sample_config = {
+            "calendars": [
+                {
+                    "url": "https://example.com/calendar.ics",
+                    "calendarName": "Example Calendar",
+                    "daysBack": 30,
+                    "daysForward": 60,
+                    "syncInterval": 5
+                }
+            ]
+        }
+        try:
+            with open('calendar_config.json.sample', 'w') as f:
+                json.dump(sample_config, f, indent=4)
+            logger.info(f"Created sample configuration file 'calendar_config.json.sample'. "
+                        f"Rename it to 'calendar_config.json' and update with your calendar details.")
+        except Exception as write_error:
+            logger.error(f"Failed to create sample config file: {write_error}")
+        return []
     except Exception as e:
         logger.error(f"Failed to load calendar config from {config_file}: {e}")
-        # Try to fall back to the old run_calendar_sync.py for backwards compatibility
-        try:
-            # Extract calendars list from the run_calendar_sync.py file
-            with open('run_calendar_sync.py', 'r') as f:
-                content = f.read()
-            
-            # Find the calendars list in the file
-            calendars_start = content.find('calendars = [')
-            if calendars_start != -1:
-                # Find the end of the calendars list
-                calendars_end = content.find(']', calendars_start)
-                if calendars_end != -1:
-                    # Extract and parse the calendars list
-                    calendars_str = content[calendars_start:calendars_end+1]
-                    # Safe evaluation of the calendars list
-                    import ast
-                    calendars = ast.literal_eval(calendars_str[calendars_str.find('['):])
-                    logger.info(f"Loaded calendar config from run_calendar_sync.py")
-                    return calendars
-        except Exception as inner_e:
-            logger.error(f"Failed to load calendar config from run_calendar_sync.py: {inner_e}")
-        
         return []
 
 def sync_calendar(calendar_config):
